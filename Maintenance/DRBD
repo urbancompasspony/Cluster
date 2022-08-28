@@ -1,0 +1,101 @@
+
+sudo drbdmon
+
+sudo drbdadm status
+
+sudo drbdadm dstate meuRes
+
+sudo drbdadm role meuRes
+
+sudo drbdadm cstate meuRes
+
+sudo drbdsetup events2 --now --statistics meuRes
+
+cat /proc/drbd 
+
+--------------------------------------------------------------------------------
+
+EM CASO DE SPLIT-BRAIN, QUEBRE O VIDRO!
+
+São os 2 servidores como Primários e offline; ao retornar, os 2 querem dados.
+Um deles terá que perder dados para normalizar. Por estarem como primários, monte os blocos e pegue os arquivos necessários:
+
+sudo mount -t ext4 /dev/drbd0 /mnt/drbd0
+sudo umount /dev/drbd0
+
+O Server02 foi escolhido para perder seus dados.
+Faça na seguinte sequência:
+
+No Server02:
+sudo drbdadm disconnect meuRes
+sudo drbdadm secondary meuRes
+sudo drbdadm connect --discard-my-data meuRes
+
+No Server01:
+sudo drbdadm disconnect meuRes
+sudo drbdadm connect meuRes
+
+--------------------------------------------------------------------------------
+
+EM CASO DE DISCO COM DEFEITO:
+
+Após um disco apresentar defeito ele será de desanexado e o nó ficará em modo “diskless”.
+
+Com “on-io-error  detach” o DRBD mascara o erro de I/O no server01 e começa a procurar, via rede, o bloco correspondente ao danificado do server01 no server02. A partir do momento em que o bloco correspondente ao server01 no server02 é encontrado então o DRBD marca o server01 como diskless e passa a transferir toda operação de I/O feita no server01 para o server02
+
+Desligue o servidor - se suportar hotswap, apenas troque o HD.
+Verifique qual letra lhe foi atribuido: lsblk / sudo blkid / df -h
+Se o novo disco pegou a mesma letra do anterior (definido no .res), execute:
+
+Apenas no Server01:
+sudo dd if=/dev/zero of=/dev/sdXY # XY Letras do novo disco, deixe-o limpo.
+sudo drbdadm create-md meuRes
+sudo drbdadm attach meuRes
+
+Se foi preferível alterar a letra, altere-a dentro de .res e execute:
+
+Ambos Servers:
+sudo drbdadm adjust meuRes
+
+Apenas no Server01
+sudo drbdadm create-md meuRes
+sudo drbdadm attach meuRes
+
+--------------------------------------------------------------------------------
+
+TROCANDO OS ATUAIS HDS PARA HDS MAIORES
+
+Siga essas regras:
+- Devemos sempre trocar os HDs nos dois servidores. Se colocar 1Tb em um e 500Gb em outro, a capacidade total será apenas 500Gb.
+- Em EXT4 use o resize2fs; se for outro, use conforme o manual.
+- A ferramenta deve ser apontada para o bloco virtual(/dev/drbd0) e não para o disco(/dev/sdb0). Então, quando executarmos usaremos: 
+sudo resize2fs /dev/drbd0
+
+Deixe ambos servidores em modo Secundário:
+$ sudo drbdadm secondary meuRes
+Use lsblk para identificar o disco, então:
+sudo fdisk /dev/sdXY
+No fdisk:
+n e tecle enter várias vezes para confirmar todas;
+w para gravar as informações e sairmos do fdisk.
+
+sudo drbdadm dstate meuRes
+Diskless!
+
+sudo drbdadm create-md meuRes
+sudo drbdadm attach meuRes
+
+AGUARDE A SINCRONIZAÇÃO!
+
+Repita os passos trocando o disco até attach.
+
+Disco não reconhecidos. Agora:
+Servidor01 apenas:
+sudo drbdadm primary meuRes
+sudo mount -t ext4 /dev/drbd0 /mnt/drbd0
+sudo resize2fs /dev/drbd0
+
+Agora os 2 discos estão com a capacidade aumentada e estão com seu conteúdo íntegro!
+
+
+Fim
