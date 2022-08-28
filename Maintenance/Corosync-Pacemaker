@@ -1,0 +1,8 @@
+Force change:
+
+sudo crm node standby secondary
+sudo crm node online secondary
+
+Delete:
+
+sudo pcs resource remove NOME floating_ip
