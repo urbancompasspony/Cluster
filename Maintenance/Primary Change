@@ -1,0 +1,36 @@
+
+PRIMARIO ATUAL:
+
+sudo pcs status
+ STARTED BY....X
+
+sudo crm node standby x
+Wait 10
+sudo crm node online x
+
+sudo systemctl stop smbd nmbd apache2 mysql
+
+sudo umount /mnt/cluster01
+sudo umount /mnt/cluster02
+
+sudo drbdadm disconnect meuRes
+sudo drbdadm disconnect meuRes2
+sudo drbdadm secondary meuRes
+sudo drbdadm secondary meuRes2
+sudo drbdadm connect meuRes
+sudo drbdadm connect meuRes2
+
+NOVO PRIMÁRIO:
+
+sudo drbdadm disconnect meuRes
+sudo drbdadm disconnect meuRes2
+sudo drbdadm primary meuRes
+sudo drbdadm primary meuRes
+sudo drbdadm connect meuRes
+sudo drbdadm connect meuRes2
+
+sudo mount /mnt/cluster01
+sudo mount /mnt/cluster02
+
+sudo systemctl restart smbd nmbd apache2
+sudo systemctl start mysql
