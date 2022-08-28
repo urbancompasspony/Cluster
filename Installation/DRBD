@@ -1,0 +1,87 @@
+
+Debian? 
+sudo apt install software-properties-common
+
+sudo add-apt-repository ppa:linbit/linbit-drbd9-stack; sudo apt update
+sudo apt install drbd-utils drbd-dkms
+
+reboot!
+
+Ubuntu?
+sudo mv /etc/init.d/drbd /etc/systemd/system/
+sudo systemctl enable drbd
+sudo ufw allow 7789
+
+Both:
+sudo cp /etc/drbd.d/global_common.conf /etc/drbd.d/global_common.conf.bkp
+sudo nano /etc/drbd.d/global_common.conf
+
+global {
+   usage-count no;
+}
+
+common {
+   net {
+      protocol C;
+      
+      after-sb-0pri discard-zero-changes;
+      after-sb-1pri discard-secondary;
+      after-sb-2pri disconnect;
+   }
+}
+
+
+Resources to handle Split-Brain
+
+BOTH:
+sudo nano /etc/drbd.d/meuRes.res
+
+resource meuRes {
+  meta-disk internal;
+
+  on server01 {
+   device    /dev/drbd0;
+   disk      /dev/mmcblk0p3;
+   address   192.168.0.6:7789;
+  }
+
+  on server02 {
+   device    /dev/drbd0;
+   disk      /dev/mmcblk0p3;
+   address   192.168.0.7:7789;
+  }
+}
+
+Aonde:
+server01 e server02 são os nomes hosts dos servidores! TROCA ISSO.
+Dizemos que os metadados ficarão no mesmo disco, serão internos.
+become-primary-on : Sempre que inicializa, os servidores são Secondary por padrão. Isso força 1 a ser Primary.
+
+OBS: Se for criar mais de 1 disco, troque tudo: meuRes para meuRes2; device /dev/drbd0 para /dev/drbd1, disk para novo disk, address mesmo IP porém 1 porta acima!
+
+Atento ao conteudo em /etc/hosts: (já feito se pacemaker ok)
+yy.yy.yy.yy hostname
+xx.xx.xx.xx hostname
+
+Nos dois servidores execute o comando abaixo para criarmos os metadados
+
+sudo dd if=/dev/zero of=/dev/DISCO_OU_PARTICÃO_A_SER_USADA
+sudo drbdadm create-md meuRes
+sudo drbdadm attach meuRes
+sudo drbdadm up meuRes
+sudo drbdadm status
+
+sudo systemctl enable drbd
+REBOOT!
+
+No Servidor Primário:
+sudo drbdadm primary --force meuRes
+sudo mkfs.ext4 /dev/drbd0 # Ou outro fs
+sudo mkfs.btrfs /dev/drbd1
+
+Fstab:
+# DRBD
+UUID= /mnt/cluster ext4 defaults,noatime,noauto 0 0
+UUID= /mnt/cluster btrfs defaults,noatime,noauto,compress=zstd 0 0
+
+Fim!
