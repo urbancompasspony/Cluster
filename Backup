@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Ao iniciar o sistema ja monta a /mnt/backup em todos os nós.
+# Portanto esse script apenas verifica se ja estava montado.
+# Se não estiver montado, ele nem tenta continuar.
+
+if grep -qs /mnt/backup /proc/mounts; then # Montado!
+  if grep -qs /mnt/cluster01 /proc/mounts; then # Montado!
+    echo "Ok" >> /dev/null
+    rsync -a --delete /mnt/cluster01/Shared/NextCloud /mnt/backup/
+  else # Não montado
+    echo "Ignoring." >> /dev/null
+  fi
+else
+  echo "Ignoring." >> /dev/null
+fi
